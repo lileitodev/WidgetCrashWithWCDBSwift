@@ -32,6 +32,7 @@ class TestManager: NSObject {
         database = Database(withPath: dbPath)
         if let pwdData = "$b)PGhvRtpjnQDqc".data(using: .utf8)  {
             database?.setConfig(named: "demo", with: { (handle: Handle) throws in
+                #warning("Pragma init(named name: String) is fileprivate. so build will fail. need temporarily change to public.")
                 try handle.exec(StatementPragma().pragma(Pragma(named: "cipher_plaintext_header_size"), to: 32))
             }, orderBy: 0)
             database?.setCipher(key: pwdData)
