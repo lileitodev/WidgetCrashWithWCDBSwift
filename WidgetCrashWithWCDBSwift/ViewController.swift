@@ -15,6 +15,12 @@ class ViewController: UIViewController {
         let info = TestInfo()
         info.uuid = UUID().uuidString
         TestManager.manager.saveInfo(info: info)
+        
+        DispatchQueue.main.async {
+            let alert = UIAlertController(title: "Restarted", message:nil, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "Cancel", style: .default, handler: nil))
+            self.present(alert, animated: true)
+        }
     }
 
 
