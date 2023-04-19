@@ -31,6 +31,9 @@ class TestManager: NSObject {
         let dbPath = databasePath()
         database = Database(withPath: dbPath)
         if let pwdData = "$b)PGhvRtpjnQDqc".data(using: .utf8)  {
+            database?.setConfig(named: "demo", with: { (handle: Handle) throws in
+                try handle.exec(StatementPragma().pragma(Pragma(named: "cipher_plaintext_header_size"), to: 32))
+            }, orderBy: 0)
             database?.setCipher(key: pwdData)
         }
         print(dbPath)
