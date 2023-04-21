@@ -30,23 +30,25 @@ class TestManager: NSObject {
         let dbPath = Self.databasePath()
         database = Database(at: dbPath)
         if let pwdData = "$b)PGhvRtpjnQDqc".data(using: .utf8)  {
-            do {
-                database?.setCipher(key: pwdData)
-                database?.setConfig(named: "demo", withInvocation: { handle in
-                    //The call back only be called when the app first be install.According to the sqlciper doc. I need this run every open db.
-                    if let salt = Self.getSalt(), !salt.isEmpty {
+            database?.setCipher(key: pwdData)
+            database?.setConfig(named: "demo", withInvocation: { handle in
+                //The call back only be called when the app first be install.According to the sqlciper doc. I need to run this on every open database.
+                if let salt = Self.getSalt(), !salt.isEmpty {
+                    do {
+                        #warning("need set Pragma.init(named name: String) to public first")
                         let headerSizePragma = Pragma(named: "cipher_plaintext_header_size")
                         try handle.exec(StatementPragma().pragma(headerSizePragma).to(32))
                         let saltPragma = Pragma(named: "cipher_salt")
                         try handle.exec(StatementPragma().pragma(saltPragma).to(salt))
-                        
+                    } catch  {
+                        print(error)
                     }
-
-                }, withPriority: .high)
+                    
+                    
+                }
                 
-            } catch  {
-                print(error)
-            }
+            }, withPriority: .high)
+            
             
             
         }
@@ -66,11 +68,10 @@ class TestManager: NSObject {
                 let first16Bytes: Data? = try handle.read(upToCount: saltLength)
                 try handle.close()
                 let salt = first16Bytes?.hexEncodedString()
-                print(salt)
                 if let salt = salt {
+                    print(salt)
                     save(salt: salt)
                 }
-                
                 return salt
             } catch  {
                 print(error)
@@ -97,9 +98,12 @@ class TestManager: NSObject {
     }
     
     class func getSavedSalt() -> String? {
-        let salt =  UserDefaults.standard.string(forKey: "salt")
-        print(salt)
-        return salt
+        if let salt =  UserDefaults.standard.string(forKey: "salt") {
+            print(salt)
+            return salt
+        }
+        
+        return nil
     }
 }
 
