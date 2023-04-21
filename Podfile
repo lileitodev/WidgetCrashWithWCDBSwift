@@ -6,14 +6,14 @@ target 'WidgetCrashWithWCDBSwift' do
   use_frameworks!
 
   # Pods for WidgetCrashWithWCDBSwift
-pod 'WCDB.swift', '~> 1.0.8.2'
+pod 'WCDB.swift', '~> 2.0.0'
 end
 target 'TestWidgetExtension' do
   # Comment the next line if you don't want to use dynamic frameworks
   use_frameworks!
 
   # Pods for WidgetCrashWithWCDBSwift
-pod 'WCDB.swift', '~> 1.0.8.2'
+pod 'WCDB.swift', '~> 2.0.0'
 end
 
 post_install do |installer|

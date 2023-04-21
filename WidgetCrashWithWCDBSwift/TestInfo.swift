@@ -12,13 +12,12 @@ final class TestInfo: TableCodable {
     var uuid: String?
     enum CodingKeys: String, CodingTableKey {
         typealias Root = TestInfo
-    case uuid
-        static let objectRelationalMapping = TableBinding(CodingKeys.self)
-        static var columnConstraintBindings: [CodingKeys: ColumnConstraintBinding]? {
-            return [
-                uuid: ColumnConstraintBinding(isPrimary: true),
-            ]
+        case uuid
+        
+        static let objectRelationalMapping = TableBinding(CodingKeys.self) {
+            BindColumnConstraint(uuid, isPrimary: true)
         }
+        
     }
 }
 
@@ -28,14 +27,28 @@ class TestManager: NSObject {
     var database: Database? = nil
     override init() {
         super.init()
-        let dbPath = databasePath()
-        database = Database(withPath: dbPath)
+        let dbPath = Self.databasePath()
+        database = Database(at: dbPath)
         if let pwdData = "$b)PGhvRtpjnQDqc".data(using: .utf8)  {
-            database?.setConfig(named: "demo", with: { (handle: Handle) throws in
-                #warning("Pragma init(named name: String) is fileprivate. so build will fail. need temporarily change to public.")
-                try handle.exec(StatementPragma().pragma(Pragma(named: "cipher_plaintext_header_size"), to: 32))
-            }, orderBy: 0)
-            database?.setCipher(key: pwdData)
+            do {
+                database?.setCipher(key: pwdData)
+                database?.setConfig(named: "demo", withInvocation: { handle in
+                    //The call back only be called when the app first be install.According to the sqlciper doc. I need this run every open db.
+                    if let salt = Self.getSalt(), !salt.isEmpty {
+                        let headerSizePragma = Pragma(named: "cipher_plaintext_header_size")
+                        try handle.exec(StatementPragma().pragma(headerSizePragma).to(32))
+                        let saltPragma = Pragma(named: "cipher_salt")
+                        try handle.exec(StatementPragma().pragma(saltPragma).to(salt))
+                        
+                    }
+
+                }, withPriority: .high)
+                
+            } catch  {
+                print(error)
+            }
+            
+            
         }
         print(dbPath)
         do {
@@ -45,17 +58,59 @@ class TestManager: NSObject {
         }
     }
     
-    func databasePath() -> String {
+    class func getSalt() -> String? {
+        if let dbURL = URL(string: databasePath()) {
+            do {
+                let saltLength = 16
+                let handle = try FileHandle(forReadingFrom:dbURL)
+                let first16Bytes: Data? = try handle.read(upToCount: saltLength)
+                try handle.close()
+                let salt = first16Bytes?.hexEncodedString()
+                print(salt)
+                if let salt = salt {
+                    save(salt: salt)
+                }
+                
+                return salt
+            } catch  {
+                print(error)
+            }
+        }
+        return getSavedSalt()
+    }
+    
+    class func databasePath() -> String {
         let pathPrefix = (FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.ai.daypop.imdev")?.path)!
         return NSString(string: pathPrefix + "/DataBase/Test").appendingPathExtension("sqlite")!
     }
     
     func saveInfo(info: TestInfo) {
         do {
-            try database?.insertOrReplace(objects: info, intoTable: testTable)
+            try database?.insertOrReplace(info, intoTable: testTable)
         } catch  {
             print(error)
         }
     }
     
+    class func save(salt: String) {
+        UserDefaults.standard.set(salt, forKey: "salt")
+    }
+    
+    class func getSavedSalt() -> String? {
+        let salt =  UserDefaults.standard.string(forKey: "salt")
+        print(salt)
+        return salt
+    }
+}
+
+extension Data {
+    struct HexEncodingOptions: OptionSet {
+        let rawValue: Int
+        static let upperCase = HexEncodingOptions(rawValue: 1 << 0)
+    }
+
+    func hexEncodedString(options: HexEncodingOptions = []) -> String {
+        let format = options.contains(.upperCase) ? "%02hhX" : "%02hhx"
+        return self.map { String(format: format, $0) }.joined()
+    }
 }
