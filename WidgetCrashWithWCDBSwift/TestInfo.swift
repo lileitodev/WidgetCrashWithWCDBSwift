@@ -29,29 +29,41 @@ class TestManager: NSObject {
         super.init()
         let dbPath = Self.databasePath()
         database = Database(at: dbPath)
-        if let pwdData = "$b)PGhvRtpjnQDqc".data(using: .utf8)  {
-            database?.setCipher(key: pwdData)
-            database?.setConfig(named: "demo", withInvocation: { handle in
-                //The call back only be called when the app first be install.According to the sqlciper doc. I need to run this on every open database.
-                if let salt = Self.getSalt(), !salt.isEmpty {
-                    do {
-                        #warning("need set Pragma.init(named name: String) to public first")
-                        let headerSizePragma = Pragma(named: "cipher_plaintext_header_size")
-                        try handle.exec(StatementPragma().pragma(headerSizePragma).to(32))
-                        let saltPragma = Pragma(named: "cipher_salt")
-                        try handle.exec(StatementPragma().pragma(saltPragma).to(salt))
-                    } catch  {
-                        print(error)
+        database?.setConfig(named: "demo", withInvocation: { handle in
+            do {
+                if let salt = Self.getSavedSalt(), !salt.isEmpty {
+                    let mark: String = "open plaintext db again:"
+                    try handle.exec(StatementPragma().pragma(.key).to("test"))
+                    print("\(mark) set key done")
+                    try handle.exec(StatementPragma().pragma(.cipherSalt).to("x'\(salt)'"))
+                    print("\(mark) read saved salt: set salt done")
+                    try handle.exec(StatementPragma().pragma(.cipherPlainTextHeaderSize).to(32))
+                    print("\(mark) set cipherPlainTextHeaderSize done")
+
+                } else {
+                    let mark: String = "set plain text for db:"
+                    try handle.exec(StatementPragma().pragma(.key).to("test"))
+                    print("\(mark) set key done")
+                    try handle.exec(StatementSelect().select(Column.all).from("sqlite_master"))
+                    print("\(mark) fetch sqlite_master done")
+                    try handle.exec(StatementPragma().pragma(.cipherSalt))
+                    print("\(mark) get salt done")
+                    if let salt = Self.getDBSalt() {
+                        try handle.exec(StatementPragma().pragma(.cipherSalt).to("x'\(salt)'"))
+                        print("\(mark) set salt done")
+                        try handle.exec(StatementPragma().pragma(.cipherPlainTextHeaderSize).to(32))
+                        print("\(mark) set cipherPlainTextHeaderSize done")
+                        //force write cipherPlainTextHeaderSize
+                        try handle.exec(StatementPragma().pragma(.userVersion).to(1))
+                        print("\(mark) set userVersion done")
                     }
-                    
-                    
                 }
                 
-            }, withPriority: .high)
-            
-            
-            
-        }
+            } catch  {
+                print(error)
+            }
+        }, withPriority: .highest)
+        
         print(dbPath)
         do {
             try database?.create(table: testTable, of: TestInfo.self)
@@ -60,7 +72,8 @@ class TestManager: NSObject {
         }
     }
     
-    class func getSalt() -> String? {
+    class func getDBSalt() -> String? {
+        //get salt from db.
         if let dbURL = URL(string: databasePath()) {
             do {
                 let saltLength = 16
@@ -69,15 +82,15 @@ class TestManager: NSObject {
                 try handle.close()
                 let salt = first16Bytes?.hexEncodedString()
                 if let salt = salt {
-                    print(salt)
+                    print("save salt:\(salt) done")
                     save(salt: salt)
+                    return salt
                 }
-                return salt
             } catch  {
                 print(error)
             }
         }
-        return getSavedSalt()
+        return nil
     }
     
     class func databasePath() -> String {

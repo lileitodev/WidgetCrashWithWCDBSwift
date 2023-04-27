@@ -14,9 +14,31 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        copyAppGroupsData()
         return true
     }
-
+    
+    func copyAppGroupsData() {
+        let fileManager = FileManager.default
+        let groupURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: "group.ai.daypop.imdev")?.appendingPathComponent("DataBase")
+        let newPath = "\(NSHomeDirectory())/Documents/CopiedAppGroups/"
+        if fileManager.fileExists(atPath: newPath) {
+            do {
+                try fileManager.removeItem(atPath: newPath)
+            } catch  {
+                print(error)
+            }
+        }
+        guard let groupURL = groupURL else {
+            return
+        }
+        do {
+            try fileManager.copyItem(atPath: groupURL.path, toPath: newPath)
+        } catch  {
+            print(error)
+        }
+    }
+    
     // MARK: UISceneSession Lifecycle
 
     func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
